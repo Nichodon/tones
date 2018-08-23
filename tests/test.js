@@ -15,7 +15,7 @@ let delay = new TONES.Delay({delay: 60/140 * 2/2, loss: 0.3});
 
 eq.connect(delay.entry);
 delay.connect(reverb);
-reverb.connect(TONES.masterEntryNode);
+reverb.connect(TONES.master);
 
 let tParams = {
     scale: TONES.Scales.ET12,
@@ -54,6 +54,34 @@ let baseFrequencyInput = document.getElementById("base_frequency_input");
 let unisonInput = document.getElementById("unison_input");
 let detuneInput = document.getElementById("detune_input");
 let blendInput = document.getElementById("blend_input");
+let harmonicInput = document.getElementById("harmonic_input");
+
+harmonicInput.oninput = function (evt) {
+    tParams.waveform = "custom";
+    let value = this.value;
+
+    ["sine", "square", "sawtooth", "triangle"].forEach(x => document.getElementById(x).disabled = !!value);
+
+    if (!value)
+        document.querySelector("input[name=\"waveform\"]:checked").onclick();
+
+    let nums = [0, ...value.split(',').map(x => (parseFloat(x.trim())))];
+
+    let invalidate = () => {
+        this.style.backgroundColor = "#FA8072";
+    };
+
+    if (nums.length < 2 && value)
+        return invalidate();
+
+    for (let i = 0; i < nums.length; i++)
+        if (isNaN(nums[i]))
+            return invalidate();
+
+    this.style.backgroundColor = "#FFF";
+
+    instrument.setWave(nums.map(() => 0), nums);
+};
 
 document.getElementById("sine").onclick = function() {
     tParams.waveform = "sine";
@@ -77,8 +105,8 @@ document.getElementById("triangle").onclick = function() {
 
 baseNoteInput.oninput = function(evt) {
     let value = this.value;
-    try {
 
+    try {
         tParams.baseNote = TONES.makeKeyboardPitch(value);
 
         baseFrequencyInput.value = tParams.baseNote.twelveTETFrequency().toFixed(5);
@@ -120,11 +148,11 @@ blendInput.oninput = function(evt) {
     refreshInst();
 };
 
-baseFrequencyInput.onblur = baseNoteInput.onblur = unisonInput.onblur = function() {
+baseFrequencyInput.onblur = baseNoteInput.onblur = unisonInput.onblur = harmonicInput.onblur = function () {
     instrument.enableKeyboardPlay();
 };
 
-baseFrequencyInput.onfocus = baseNoteInput.onfocus = unisonInput.onfocus = function () {
+baseFrequencyInput.onfocus = baseNoteInput.onfocus = unisonInput.onfocus = harmonicInput.onfocus = function () {
     instrument.disableKeyboardPlay();
 };
 
@@ -136,7 +164,6 @@ document.getElementById("lowpass_input").oninput = function() {
 
 document.getElementById("lowpass_input_value").oninput = function() {
     let value = 5 * (this.value / 50 - 1);
-    console.log(value);
 
     eq.F0.gain.value = value;
 };
@@ -189,15 +216,52 @@ ${BASS_1}
 ${BASS_1}
 ${BASS_1}
 ${BASS_1}
+${BASS_1}
+${BASS_1}
+${BASS_1}
+${BASS_1}
+${BASS_1}
+${BASS_1}
+${BASS_1}
+${BASS_1}
+${BASS_1}
+${BASS_1}
+${BASS_1}
+${BASS_1}
+${BASS_1}
+${BASS_1}
+${BASS_1}
+${BASS_1}
+${BASS_1}
+${BASS_1}
 `;
 
 let note_group = TONES.parseAbbreviatedGroup(strn);
 
 function playDDD() {
     instrument.cancelAll();
-    let time_context = new TONES.TimeContext(140, TONES.Context.currentTime + 0.3);
+    let time_context = new TONES.TimeContext(200, TONES.Context.currentTime + 0.3);
     note_group.schedule(instrument, time_context);
 }
+
+let g_canvas = document.getElementById("canv");
+
+let transformation = TONES.stretchToCanvas(g_canvas, 0, 1000, 3, 0);
+let grapher = new TONES.ArrayGrapher({
+    domElement: g_canvas,
+    transformation: transformation
+});
+
+let x_before = [...Array(1000).keys()];
+let x = x_before.map(x => Math.pow(2, x * 15 / 1000 + 1));
+
+function drawEQ() {
+    let resp = eq.getMagnitudeResponse(x);
+    grapher.drawLineSegments(x_before, resp);
+    requestAnimationFrame(drawEQ);
+}
+
+drawEQ();
 
 let svg = new TONES.SVGContext("svg1");
 
@@ -216,7 +280,7 @@ for (let i = 0; i < 13; i++) {
     }));
 }
 
-visualizers.forEach(x => TONES.masterEntryNode.connect(x.entry));
+visualizers.forEach(x => TONES.master.connect(x.entry));
 
 setTimeout(() => {
     visualizers.forEach(x => x.start());
